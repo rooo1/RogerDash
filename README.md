@@ -136,6 +136,10 @@ All under `app/src/main/java/app/roger/dash/`.
 
 ---
 
+## License
+
+Copyright 2026 the RogerDash authors. Licensed under the [Apache License 2.0](LICENSE): you can use, change and share RogerDash, including in your own apps, as long as you keep the copyright and licence notices.
+
 ## Disclaimer
 
 Not affiliated with or endorsed by Suzuki. The dashboard protocol was worked out from the official app's own messages, for interoperability. Use at your own risk, and don't use your phone while riding.
