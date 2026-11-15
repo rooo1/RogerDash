@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Place search and routes (OpenStreetMap services). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Talking to the bike's dashboard (Bluetooth Low Energy). Scanning isn't used for location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Recording the route of a ride (optional: rides also work from the bike's own data). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Staying connected and recording with the screen off. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Knowing when the phone rings, so the call shows on the dash (no calls are made, no call history is read). -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="RogerDash"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+
+        <!-- Rider's own Google Maps key (local.properties MAPS_API_KEY); empty = OpenStreetMap map. -->
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- First-run setup wizard; also opened from More → How it works. -->
+        <activity
+            android:name=".SetupActivity"
+            android:exported="false" />
+
+        <!-- Reads Google Maps' turn-by-turn notification, and who is calling or messaging, for the dashboard. -->
+        <service
+            android:name=".NavListener"
+            android:exported="true"
+            android:label="RogerDash (calls, messages, Maps turns for the dash)"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.notification.default_filter_types"
+                android:value="ongoing" />
+        </service>
+
+        <!-- Shares ride pictures and GPX files (only from cache/share, only to apps we grant). -->
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="app.roger.dash.share"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <service
+            android:name=".DashService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|location" />
+    </application>
+</manifest>
