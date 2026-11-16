@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400">
+  <!-- README banner: phone → dash, with a mock of the dash's 12-letter pop-up. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1A1D23"/>
+      <stop offset="1" stop-color="#0D1117"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F06A1D"/>
+      <stop offset="1" stop-color="#D84F08"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="400" rx="24" fill="url(#bg)"/>
+
+  <!-- Left: name and tagline -->
+  <g font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+    <text x="80" y="170" fill="#FFFFFF" font-size="72" font-weight="700">RogerDash</text>
+    <text x="82" y="222" fill="#C9D1D9" font-size="28">Turns, calls and messages on your Suzuki's dash.</text>
+    <text x="82" y="262" fill="#8B949E" font-size="24">Ride log and fuel tracker for any bike.</text>
+    <rect x="82" y="300" width="250" height="44" rx="22" fill="url(#orange)"/>
+    <text x="207" y="329" fill="#FFFFFF" font-size="20" font-weight="600" text-anchor="middle">Free · Open source</text>
+  </g>
+
+  <!-- Right: mock dash screen -->
+  <g transform="translate(800,70)">
+    <rect width="400" height="260" rx="28" fill="#05070A" stroke="#30363D" stroke-width="3"/>
+    <!-- gauge arc + arrow -->
+    <g transform="translate(40,40) scale(1.6)">
+      <path d="M34.9,71.5 A23,23 0,1 1,73.1 71.5" fill="none" stroke="#F06A1D" stroke-width="6" stroke-linecap="round" transform="translate(-30,-30)"/>
+      <path d="M54,43 L64,66 L54,60.5 L44,66 Z" fill="#FFFFFF" transform="translate(-30,-30)"/>
+    </g>
+    <g font-family="Consolas, 'Courier New', monospace" fill="#7CFC9A">
+      <text x="200" y="100" font-size="56" font-weight="700">200 M</text>
+      <text x="40" y="200" font-size="40" letter-spacing="2">M GANDHI RD</text>
+    </g>
+    <text x="40" y="236" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="18" fill="#8B949E">next turn · street name</text>
+  </g>
+</svg>

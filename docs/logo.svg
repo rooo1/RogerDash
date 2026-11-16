@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
+  <!-- RogerDash app icon: the launcher icon (gauge arc + navigation arrow) on the app's orange. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F06A1D"/>
+      <stop offset="1" stop-color="#D84F08"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="24" fill="url(#bg)"/>
+  <path d="M34.9,71.5 A23,23 0,1 1,73.1 71.5" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M54,43 L64,66 L54,60.5 L44,66 Z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+</svg>
