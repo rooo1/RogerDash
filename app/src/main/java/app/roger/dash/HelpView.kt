@@ -49,8 +49,10 @@ class HelpView(private val a: Activity, private val ui: Ui, private val runSetup
         }
 
         box.addView(ui.label("Fuel and range"))
-        p(if (m.suzuki) "Range = fuel bars on the dash × your mileage. Log full-tank fill-ups on the Fuel tab and the mileage is measured; " +
-            "until then it uses the expected figure (or the AVG you typed in from your dash). It's always an estimate: a fuel bar covers a few litres."
+        p(if (m.suzuki) "Range = fuel bars on the dash × your mileage, counted down by the km you ride. When a bar goes out, the app " +
+            "knows the fuel is at the top of the next bar and counts down from there; a full-tank fill-up is an exact starting point too. " +
+            "Log full-tank fill-ups on the Fuel tab and the mileage is measured; until then it uses the expected figure (or the AVG you " +
+            "typed in from your dash). It's always an estimate: a fuel bar covers a few litres."
         else "Range = tank size × your mileage, minus the km ridden since your last full tank. Log full-tank fill-ups on the Fuel tab " +
             "to start it and to measure your real mileage. Rides you don't record aren't counted.")
 

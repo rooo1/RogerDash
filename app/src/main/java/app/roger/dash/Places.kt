@@ -187,7 +187,8 @@ object Places {
 }
 
 object Http {
-    private const val UA = "RogerDash/1.0 (open-source motorcycle app)"
+    /** Names the app to the free services (OpenStreetMap, OpenFreeMap ask for this). */
+    const val UA = "RogerDash/1.0 (open-source motorcycle app; https://github.com/rooo1/RogerDash)"
 
     /** Plain GET with a generic user agent (no personal details). */
     fun get(url: String, timeoutMs: Int = 12_000, headers: Map<String, String> = emptyMap()): String =

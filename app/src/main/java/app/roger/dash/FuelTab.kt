@@ -27,7 +27,7 @@ class FuelTab(private val a: Activity, private val ui: Ui) {
         val v = DashHub.vehicle
         val bars = DashHub.bike?.takeIf { DashHub.bikeFresh }?.fuelBars ?: DashHub.lastFuelBars
         val log = DashHub.store.fuel(v.id)
-        val k = "${v}-$bars-${log.size}-${DashHub.store.trips().size}-${DashHub.demo}-${DashHub.connected}-${DashHub.bikeEconomy}"
+        val k = "${v}-$bars-${log.size}-${DashHub.store.trips().size}-${DashHub.demo}-${DashHub.connected}-${DashHub.bikeEconomy}-${Range.odo()}" // odometer: range counts down per km
         if (k == key) return
         key = k
         box.removeAllViews()
@@ -201,6 +201,7 @@ class FuelTab(private val a: Activity, private val ui: Ui) {
                 val o = km.text.toString().toIntOrNull()
                 if (l != null && l > 0 && o != null) {
                     DashHub.store.addFuel(FuelEntry(System.currentTimeMillis(), l, cost.text.toString().toDoubleOrNull() ?: 0.0, o, full.isChecked, v.id))
+                    if (full.isChecked && v.dash) DashHub.fullTank(o)
                     refresh()
                 }
             }

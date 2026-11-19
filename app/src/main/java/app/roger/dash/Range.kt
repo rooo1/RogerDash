@@ -14,8 +14,8 @@ object Range {
     enum class Confidence(val label: String) { LOW("Low"), MEDIUM("Medium"), HIGH("High") }
 
     /**
-     * An estimate, never a measurement: fuel bars × mileage. [plusMinusKm]: half a bar's worth either way,
-     * since a bar stays lit from full down to empty.
+     * An estimate, never a measurement: fuel bars × mileage, counted down by km ridden. [plusMinusKm]: half a
+     * bar's worth either way (a bar stays lit from full down to empty), a quarter once a bar was seen going out.
      */
     data class Estimate(val km: Int, val kmPerL: Double, val basis: String, val confidence: Confidence = Confidence.LOW, val plusMinusKm: Int = 0)
 
@@ -52,15 +52,100 @@ object Range {
 
     fun mileage(store: TripStore): Pair<Double, String> = mileageOf(store).let { it.kmPerL to it.basis }
 
-    /** From the Suzuki's fuel bars. */
+    /**
+     * Fuel in the tank at a known point: [litres] when the dash showed [bars] at odometer [odo] km. [atTop]: seen
+     * the moment a bar went out, so the fuel was right at the top of the bar now showing; otherwise somewhere
+     * inside it (counted as half full).
+     */
+    data class Anchor(val bars: Int, val odo: Int, val litres: Double, val atTop: Boolean) {
+        fun save() = "$bars,$odo,$litres,$atTop"
+        companion object {
+            fun load(s: String?): Anchor? = s?.split(',')?.takeIf { it.size == 4 }?.let {
+                Anchor(it[0].toIntOrNull() ?: return null, it[1].toIntOrNull() ?: return null,
+                    it[2].toDoubleOrNull() ?: return null, it[3] == "true")
+            }
+        }
+    }
+
+    /** The last [Anchor] and the bike's odometer now (live, or last seen); set by [DashHub]. */
+    var anchor: () -> Anchor? = { null }
+    var odo: () -> Int? = { null }
+
+    private fun barsOn(v: Vehicle) = v.bars.takeIf { it > 0 } ?: BARS
+
+    /**
+     * New anchor after the dash sent [bars] at [odo]. A bar going out (one less than before) is the one moment
+     * the fuel level is known well: right at the top of the new bar. Same bars: keep counting from the old anchor.
+     * More bars (refuelled), a jump of 2+ bars, or an odometer that went backwards: start again at half a bar.
+     */
+    fun track(prev: Anchor?, bars: Int, odo: Int, v: Vehicle): Anchor {
+        val perBar = v.tankL / barsOn(v)
+        if (prev != null && odo >= prev.odo) {
+            if (bars == prev.bars) return prev
+            if (bars == prev.bars - 1) return Anchor(bars, odo, bars * perBar, atTop = true)
+        }
+        return Anchor(bars, odo, (bars - 0.5).coerceAtLeast(0.25) * perBar, atTop = false)
+    }
+
+    /**
+     * Where the last bar went out, worked out from saved rides (each keeps its start/end odometer and bars), for
+     * when there's no live [Anchor] yet: e.g. the ride before this app version. Newest ride first, walking back
+     * while [bars] stayed lit:
+     * - a ride that started on one more bar and ended on [bars]: the bar went out during it, so the middle of it;
+     * - a ride that ended on one more bar, with the next one starting on [bars]: between them, so the middle of the gap.
+     * Null if the bars were never seen going out, or the rides don't have the odometer.
+     */
+    fun fromRides(trips: List<Trip>, bars: Int, v: Vehicle): Anchor? {
+        val perBar = v.tankL / barsOn(v)
+        fun top(odo: Int) = Anchor(bars, odo, bars * perBar, atTop = true)
+        var later: Trip? = null
+        for (t in trips.filter { it.fuelStart != null && it.fuelEnd != null }.sortedByDescending { it.start }) {
+            val s = t.fuelStart!!; val e = t.fuelEnd!!
+            when {
+                e == bars + 1 && later != null -> {
+                    val a = t.endOdo ?: return null; val b = later.startOdo ?: return null
+                    return if (b >= a) top((a + b) / 2) else null
+                }
+                e != bars -> return null // refuelled, or bars missing in between
+                s == bars + 1 -> {
+                    val a = t.startOdo ?: return null; val b = t.endOdo ?: return null
+                    return if (b >= a) top((a + b) / 2) else null
+                }
+                s != bars -> return null
+            }
+            later = t
+        }
+        return null
+    }
+
+    /**
+     * Litres in the tank now: the anchor's litres minus fuel used on the km ridden since, but never outside what
+     * the [bars] lit allow (above the bottom of the last lit bar, at most the top of it).
+     */
+    fun litresNow(a: Anchor?, bars: Int, odoNow: Int?, kmPerL: Double, v: Vehicle): Double {
+        val perBar = v.tankL / barsOn(v)
+        val low = (bars - 1).coerceAtLeast(0) * perBar + (if (bars > 0) 0.1 * perBar else 0.0)
+        val high = if (bars > 0) bars * perBar else 0.5 * perBar // no bars lit: some reserve is still there
+        val start = a?.takeIf { it.bars == bars }
+        if (start == null || odoNow == null || odoNow < start.odo) return (bars - 0.5).coerceAtLeast(0.25) * perBar
+        return (start.litres - (odoNow - start.odo) / kmPerL).coerceIn(minOf(low, high), high)
+    }
+
+    /**
+     * From the Suzuki's fuel bars, counted down by the km ridden since the last bar went out: the bars alone only
+     * change every ~2 L (~60 km), so between them the range would sit still and then jump a whole bar.
+     */
     fun estimate(bars: Int?, store: TripStore): Estimate? {
         val v = dashBike()
-        val n = v.bars.takeIf { it > 0 } ?: BARS
+        val n = barsOn(v)
         val b = bars?.takeIf { it in 0..n } ?: return null
         val m = mileageOf(store, v)
-        // A bar shows while there's fuel left in it, so count each lit bar as about half full on average.
-        val litres = ((b - 0.5).coerceAtLeast(0.25) / n) * v.tankL
-        return Estimate((litres * m.kmPerL).roundToInt(), m.kmPerL, m.basis, m.confidence, (v.tankL / n / 2 * m.kmPerL).roundToInt())
+        val a = anchor()?.takeIf { it.bars == b } ?: fromRides(store.trips(v.id), b, v)
+        val litres = litresNow(a, b, odo(), m.kmPerL, v)
+        // Known from a bar going out: about a quarter bar either way; otherwise half a bar.
+        val plusMinus = v.tankL / n * (if (a?.atTop == true) 0.25 else 0.5) * m.kmPerL
+        val basis = if (a?.atTop == true) "${m.basis}; counted down from when bar ${b + 1} went out" else m.basis
+        return Estimate((litres * m.kmPerL).roundToInt(), m.kmPerL, basis, m.confidence, plusMinus.roundToInt())
     }
 
     /**

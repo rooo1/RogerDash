@@ -50,6 +50,7 @@
 - **Two-wheeler routes**, plus a **weekend-loop planner**.
 - **Spoken turns** in your helmet or earphones.
 - **Free OpenStreetMap** search and routes out of the box.
+- **Offline maps**: save the map around you or along a route for rides without signal.
 - **Google search and live traffic** with your own key (optional).
 
     </td>
@@ -145,7 +146,8 @@ Your key stays on your phone, and Google bills your own account. If Google refus
 </div>
 
 - **Pop-ups are short.** The V-Strom dash shows 12 capital letters, so street names are shortened ("Mahatma Gandhi Road" → "M GANDHI RD").
-- **Range is an estimate.** Fuel bars × your mileage. Log full-tank fill-ups and it gets more accurate.
+- **Range is an estimate.** Fuel bars × your mileage, counted down by the km you ride. When a bar goes out, the app knows the fuel is at the top of the next bar. Log full-tank fill-ups and it gets more accurate.
+- **Offline maps** (More → Offline maps, or the route preview) keep the map and a route you already planned working without signal. Search and new routes still need signal. A city is usually 10–40 MB.
 - **The bike doesn't send its trip average** (V-Strom), so type in the AVG from your dash, or log fill-ups.
 - **Moving to a new phone?** More → Backup saves everything to one file. It includes your Google key if you entered one, so keep it private.
 
@@ -232,6 +234,7 @@ MAPS_API_KEY=your-key
 | `SetupActivity.kt`, `HelpView.kt` | Setup wizard and "How it works" |
 | `Router.kt`, `GoogleRoutes.kt`, `Places.kt` | Routes and search (OpenStreetMap or Google) |
 | `RouteMap.kt` | The map (OpenStreetMap, or Google in your own builds) |
+| `OfflineMaps.kt` | Saved map areas (MBTiles, within OpenFreeMap's download limits) |
 | `RideRecorder.kt`, `Trips.kt`, `Range.kt` | Rides, storage, fuel range |
 | `Backup.kt` | Backup and restore |
 | `*Tab.kt` | The screens: Ride, Navigate, Trips, Fuel, More |

@@ -510,6 +510,16 @@ class NavTab(
         box.addView(ui.secondary("Cancel") { DashHub.cancelPlan() })
     }
 
+    /** The map 2 km either side of the route (1 km on a long one), for riding it without signal. */
+    private fun saveRoute(p: Place, r: Route) {
+        fun toast(s: String) = android.widget.Toast.makeText(a, s, android.widget.Toast.LENGTH_LONG).show()
+        if (OfflineMaps.progress != null) { toast("Already saving a map: see More → Offline maps"); return }
+        val tiles = listOf(2.0, 1.0).map { OfflineMaps.along(r.shape, it) }.firstOrNull { OfflineMaps.count(it) <= OfflineMaps.MAX_TILES }
+            ?: run { toast("Too long to save in one go. Save the map around your stops from More → Offline maps."); return }
+        OfflineMaps.save(a, "Route to ${p.name}", "route", tiles) { err -> toast(err ?: "Map along the route saved for offline") }
+        toast("Saving the map along the route (${OfflineMaps.count(tiles)} tiles). Progress: More → Offline maps")
+    }
+
     private fun preview(p: Place, r: Route) {
         box.addView(ui.text(p.name, 26f).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) })
         if (p.detail.isNotBlank()) box.addView(ui.text(p.detail, 13.5f, ui.soft))
@@ -550,6 +560,7 @@ class NavTab(
             ui.link("+ Add stop") { pickMode = "stop"; refresh(); where.requestFocus() },
             ui.link("⛽ Fuel on the way") { showFuel() }.apply { gravity = Gravity.END },
         ).apply { setPadding(0, ui.dp(10), 0, 0) })
+        box.addView(ui.link("⬇ Save the map along this route (offline)") { saveRoute(p, r) }.apply { setPadding(0, ui.dp(8), 0, 0) })
 
         tripPlan(r)
 

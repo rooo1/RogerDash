@@ -77,6 +77,8 @@ base {
 dependencies {
     // Maps: open-source engine; tiles from OpenFreeMap (OpenStreetMap data, free, no key).
     implementation("org.maplibre.gl:android-sdk:13.7.1")
+    // MapLibre's own HTTP client (already inside it): set up for OpenFreeMap's offline-download rules (OfflineMaps.kt).
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Google's map, used instead when a debug build has a Google Maps key (MAPS_API_KEY in local.properties).
     implementation("com.google.android.gms:play-services-maps:19.0.0")
     // One-tap "Turn on location?" dialog when Location is off.

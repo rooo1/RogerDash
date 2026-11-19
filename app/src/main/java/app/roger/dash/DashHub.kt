@@ -8,6 +8,7 @@ import android.location.Location
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import java.util.Locale
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -70,6 +71,8 @@ object DashHub : DashLink.Listener {
         }
         Range.current = { vehicle }
         Range.dashBike = { vehicles.firstOrNull { it.dash } ?: Vehicle.defaultFor(model) }
+        Range.anchor = { if (demo) null else Range.Anchor.load(prefs.getString("fuelAnchor", null)) }
+        Range.odo = { if (demo) null else bike?.takeIf { bikeFresh }?.odoKm ?: lastOdo }
         PhoneAlerts.start(app)
     }
 
@@ -345,6 +348,18 @@ object DashHub : DashLink.Listener {
         bike = data
         bikeAt = SystemClock.elapsedRealtime()
         if (!demo) prefs.edit().apply {
+            // Where the fuel is inside the current bar, so the range counts down between bars (kept over ignition off).
+            if (data.fuelBars != null && data.odoKm != null) {
+                val v = Range.dashBike()
+                val was = Range.Anchor.load(prefs.getString("fuelAnchor", null))
+                    ?: Range.fromRides(store.trips(v.id), data.fuelBars, v) // first time: from saved rides
+                val now = Range.track(was, data.fuelBars, data.odoKm, v)
+                if (now != was) {
+                    putString("fuelAnchor", now.save())
+                    logBoth("Fuel: ${now.bars} bars at ${now.odo} km, ${"%.1f".format(Locale.US, now.litres)} L" +
+                        if (now.atTop) " (a bar just went out)" else " (somewhere in the bar)")
+                }
+            }
             data.fuelBars?.let { putInt("lastFuel", it) }
             data.odoKm?.let { putInt("lastOdo", it) }
             data.tripAKm?.let { putFloat("lastTripA", it.toFloat()) }
@@ -361,6 +376,14 @@ object DashHub : DashLink.Listener {
         lowFuelCheck(data.fuelBars)
         speedPopup(data.speedKmh)
         changed()
+    }
+
+    /** A full tank logged at [odo]: the fuel is known exactly, so range counts down from a full tank. */
+    fun fullTank(odo: Int) {
+        val v = Range.dashBike()
+        val a = Range.Anchor(v.bars.takeIf { it > 0 } ?: Range.BARS, odo, v.tankL, atTop = true)
+        prefs.edit().putString("fuelAnchor", a.save()).apply()
+        logBoth("Fuel: full tank at $odo km")
     }
 
     // ───────────── range on the dash ─────────────
@@ -834,7 +857,7 @@ object DashHub : DashLink.Listener {
     }
 
     /** Our position: a recent GPS fix, else ask Android for one (up to ~15 s). */
-    private fun currentPosition(done: (LatLon?) -> Unit) {
+    fun currentPosition(done: (LatLon?) -> Unit) {
         lastFix?.let { if (SystemClock.elapsedRealtime() - lastFixAt < 120_000) { done(it); return } }
         val lm = app.getSystemService(android.location.LocationManager::class.java)
         if (lm == null || !locationOn() ||

@@ -63,8 +63,13 @@ class RouteMap(
     internal var speedMps = 0f
     internal var follow = navigation
 
-    /** Google's map when the app has a map key built in and the rider didn't switch it off (More → Google Maps). */
-    private val engine: Engine = if (googleMapKey(a) && DashHub.googleMap) GoogleEngine(a, this, ui, navigation) else LibreEngine(a, this, ui, navigation)
+    /**
+     * Google's map when the app has a map key built in and the rider didn't switch it off (More → Google Maps);
+     * the saved OpenStreetMap map instead when there's no internet and a map area is saved (More → Offline maps).
+     */
+    private val engine: Engine =
+        if (googleMapKey(a) && DashHub.googleMap && !OfflineMaps.useSaved(a)) GoogleEngine(a, this, ui, navigation)
+        else LibreEngine(a, this, ui, navigation)
 
     companion object {
         const val BLUE = "#1A73E8"
@@ -414,7 +419,7 @@ private class GoogleEngine(a: Activity, private val m: RouteMap, private val ui:
 
 // ───────────── MapLibre + OpenStreetMap ─────────────
 
-private class LibreEngine(a: Activity, private val m: RouteMap, private val ui: Ui, private val navigation: Boolean) : RouteMap.Engine {
+private class LibreEngine(private val a: Activity, private val m: RouteMap, private val ui: Ui, private val navigation: Boolean) : RouteMap.Engine {
     private val mv: org.maplibre.android.maps.MapView
     override val view: View get() = mv
     private var map: org.maplibre.android.maps.MapLibreMap? = null
@@ -422,7 +427,7 @@ private class LibreEngine(a: Activity, private val m: RouteMap, private val ui: 
     private var fitted = false
 
     init {
-        org.maplibre.android.MapLibre.getInstance(a)
+        OfflineMaps.setup(a)
         mv = org.maplibre.android.maps.MapView(a)
         mv.onCreate(null)
         mv.getMapAsync { g ->
@@ -440,8 +445,30 @@ private class LibreEngine(a: Activity, private val m: RouteMap, private val ui: 
                 if (reason == org.maplibre.android.maps.MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) m.userPanned()
             }
             // "liberty": the detailed, Google-like look; at night a dark detailed style.
-            val styleUrl = "https://tiles.openfreemap.org/styles/" + if (ui.dark) "fiord" else "liberty"
-            g.setStyle(org.maplibre.android.maps.Style.Builder().fromUri(styleUrl)) { s ->
+            loadStyle()
+            // Signal lost or back mid-ride: switch between the live map and the saved one (More → Offline maps).
+            runCatching { cm.registerDefaultNetworkCallback(net) }
+        }
+    }
+
+    private val cm = a.getSystemService(android.net.ConnectivityManager::class.java)
+    private var savedStyle = false
+    private val net = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(n: android.net.Network, c: android.net.NetworkCapabilities) { recheck() }
+        override fun onLost(n: android.net.Network) { recheck() }
+        private fun recheck() { m.post { if (map != null && OfflineMaps.useSaved(a) != savedStyle) loadStyle() } }
+    }
+
+    /** The live OpenFreeMap style, or with no internet and a saved area, the saved one; then our layers on top. */
+    private fun loadStyle() {
+        val g = map ?: return
+        val name = if (ui.dark) "fiord" else "liberty"
+        val saved = if (OfflineMaps.useSaved(a)) OfflineMaps.offlineStyle(a, name) else null
+        savedStyle = saved != null
+        style = null
+        val builder = org.maplibre.android.maps.Style.Builder().let { if (saved != null) it.fromJson(saved) else it.fromUri(OfflineMaps.styleUrl(name)) }
+        run {
+            g.setStyle(builder) { s ->
                 style = s
                 s.addImage("puck-arrow", m.puck(arrow = true))
                 s.addImage("puck-dot", m.puck(arrow = false))
@@ -503,7 +530,10 @@ private class LibreEngine(a: Activity, private val m: RouteMap, private val ui: 
 
     override fun start() { mv.onStart(); mv.onResume() }
     /** Destroyed: later draw calls (a search box losing focus as the screen closes) must not touch the old map. */
-    override fun stop() { style = null; map = null; mv.onPause(); mv.onStop(); mv.onDestroy() }
+    override fun stop() {
+        runCatching { cm.unregisterNetworkCallback(net) }
+        style = null; map = null; mv.onPause(); mv.onStop(); mv.onDestroy()
+    }
 
     override fun fit(points: List<LatLon>) {
         val g = map ?: return

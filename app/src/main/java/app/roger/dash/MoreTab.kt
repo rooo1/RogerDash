@@ -163,6 +163,8 @@ class MoreTab(
         box.addView(ui.text("Home and Work: set them on the Navigate tab, then they're one tap away.", 12.5f, ui.soft)
             .apply { setPadding(0, ui.dp(6), 0, 0) })
 
+        offline()
+
         box.addView(ui.label("Google Maps"))
         val problem = GoogleAuth.problem
         box.addView(ui.text(when {
@@ -221,5 +223,77 @@ class MoreTab(
         box.addView(ui.text(if (DashHub.model.suzuki) "Connect manually, send test arrows, calls and messages, browse the dashboard's icons, see the log."
             else "What the app has been doing, for when something doesn't work.", 12.5f, ui.soft))
         ui.cardify(box)
+    }
+
+    // ───────────── offline maps ─────────────
+
+    private var offlineStatus: android.widget.TextView? = null
+    private var wasSaving = false
+
+    /** Saved map areas for rides without signal: list, save around me, progress. */
+    private fun offline() {
+        box.addView(ui.label("Offline maps"))
+        box.addView(ui.text("Save the map for rides without signal. The map and a route you planned before losing signal keep working; " +
+            "search and new routes need signal. You can also save the map along a route from its preview on the Navigate tab.", 12.5f, ui.soft))
+        val areas = OfflineMaps.areas(a)
+        val newest = OfflineMaps.version(a)
+        areas.forEach { ar ->
+            box.addView(ui.divider())
+            val detail = ui.text((if (ar.kind == "route") "Along a route" else "Area") + " · saved ${Fmt.day(ar.made)}" +
+                (if (ar.version != newest) " · update waiting" else ""), 12.5f, ui.soft)
+            box.addView(LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, ui.dp(6), 0, ui.dp(6))
+                addView(ui.column(ui.text(ar.name, 15f), detail), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(ui.link("Delete") {
+                    android.app.AlertDialog.Builder(a).setTitle("Delete ${ar.name}?")
+                        .setMessage("The map there needs signal again.")
+                        .setPositiveButton("Delete") { _, _ -> OfflineMaps.delete(a, ar) { build() } }
+                        .setNegativeButton("Cancel", null).show()
+                }.apply { setPadding(ui.dp(12), 0, 0, 0) })
+            })
+        }
+        if (areas.isNotEmpty()) box.addView(ui.text("Saved maps use ${Fmt.mb(OfflineMaps.bytesUsed(a))} on this phone.", 12.5f, ui.soft)
+            .apply { setPadding(0, ui.dp(6), 0, 0) })
+
+        val status = ui.text(OfflineMaps.progress ?: "", 13f, ui.accent).apply { visibility = if (OfflineMaps.progress != null) View.VISIBLE else View.GONE }
+        offlineStatus = status
+        box.addView(status)
+        wasSaving = OfflineMaps.progress != null
+        OfflineMaps.onChange = {
+            val p = OfflineMaps.progress
+            offlineStatus?.apply { text = p ?: ""; visibility = if (p != null) View.VISIBLE else View.GONE }
+            if (wasSaving && p == null) build() // finished: show the new list
+            wasSaving = p != null
+        }
+        box.addView(if (OfflineMaps.progress != null) ui.link("Stop saving") { OfflineMaps.cancel(a) }
+            else ui.link("＋ Save the map around me") { saveAround() })
+    }
+
+    private fun saveAround() {
+        android.widget.Toast.makeText(a, "Finding your position…", android.widget.Toast.LENGTH_SHORT).show()
+        DashHub.currentPosition { me ->
+            if (me == null) android.widget.Toast.makeText(a, "No position: turn Location on and try again", android.widget.Toast.LENGTH_LONG).show()
+            else saveAround(me)
+        }
+    }
+
+    private fun saveAround(me: LatLon) {
+        val choices = listOf(10.0, 25.0, 50.0).map { km -> km to OfflineMaps.around(me, km) }
+            .filter { OfflineMaps.count(it.second) <= OfflineMaps.MAX_TILES }
+        val labels = choices.map { (km, t) -> "${km.toInt()} km around you (about ${OfflineMaps.count(t)} map tiles)" }.toTypedArray()
+        android.app.AlertDialog.Builder(a)
+            .setTitle("Save the map around you")
+            .setItems(labels) { _, i ->
+                val (km, tiles) = choices[i]
+                OfflineMaps.save(a, { "${OfflineMaps.townAt(me) ?: "Your area"} (${km.toInt()} km)" }, "area", tiles) { err ->
+                    android.widget.Toast.makeText(a, err ?: "Map saved for offline", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                build()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+        android.widget.Toast.makeText(a, "Best on Wi-Fi: a city is usually 10–40 MB", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

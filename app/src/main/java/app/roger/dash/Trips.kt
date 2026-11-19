@@ -266,6 +266,9 @@ data class Economy(
 }
 
 object Fmt {
+    /** Bytes as "12 MB" (or "0.4 MB"). */
+    fun mb(bytes: Long) = (bytes / 1_048_576.0).let { if (it < 10) "%.1f MB".format(Locale.US, it) else "%,d MB".format(Locale.US, it.roundToInt()) }
+
     fun km(v: Double) = when {
         v < 10 -> "%.1f km".format(Locale.US, v)
         else -> "%,d km".format(Locale.US, v.roundToInt())
