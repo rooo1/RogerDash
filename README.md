@@ -176,7 +176,7 @@ Needs Android SDK 35 and JDK 17.
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
-adb install -r app\build\outputs\apk\debug\RogerDash-1.0.0-debug.apk
+adb install -r app\build\outputs\apk\debug\RogerDash-<version>-debug.apk
 ```
 
 </details>
